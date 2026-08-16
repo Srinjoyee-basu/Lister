@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#11110f">
+  <title>Lister — Find the oddly specific</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <a href="#" class="logo" aria-label="Lister home">
+    <span class="logo-mark">L</span>
+    <span>Lister</span>
+  </a>
+
+  <nav class="main-nav">
+    <button class="nav-link active" data-view="explore" type="button">Explore</button>
+    <button class="nav-link" data-view="lists" type="button">Lists</button>
+    <button class="nav-link" data-view="saved" type="button">Saved</button>
+  </nav>
+
+  <div class="header-right">
+    <button class="header-search" id="focusSearch" type="button">
+      <span>⌕</span><span>Search</span><kbd>/</kbd>
+    </button>
+    <button class="signin-btn" id="loginBtn" type="button">Sign in</button>
+    <button class="avatar" id="profileBtn" type="button" hidden>U</button>
+    <button class="add-btn" id="addBtn" type="button"><span>+</span> Add</button>
+  </div>
+</header>
+
+<main>
+
+<section id="exploreView">
+  <section class="hero">
+    <div class="hero-copy">
+      <div class="eyebrow"></div>
+      <h1>Things you didn't<br><em>know you needed.</em></h1>
+      <p class="hero-text">
+        Weird cars. Tiny brands. Beautiful objects. Brilliant books.
+        Lister is where people collect the oddly specific things worth knowing.
+      </p>
+
+      <div class="hero-search">
+        <span class="search-icon">⌕</span>
+        <input id="search" type="search" placeholder="Search the rabbit hole..." autocomplete="off">
+        <kbd>/</kbd>
+      </div>
+
+      <div class="hero-meta">
+        <span><b>01</b> Find something</span>
+        <span><b>02</b> Save it</span>
+        <span><b>03</b> Fall deeper</span>
+      </div>
+    </div>
+
+    <div class="hero-card">
+      <div class="hero-card-top">
+        <span>FEATURED</span>
+        <span>✦</span>
+      </div>
+      <div class="hero-symbol">◈</div>
+      <p class="hero-card-kicker">THE LISTER IDEA</p>
+      <h2>Not everything<br>needs to be famous.</h2>
+      <p>Some things are better when you have to go looking for them.</p>
+      <div class="hero-card-line"></div>
+      <span class="hero-card-number">L / 001</span>
+    </div>
+  </section>
+
+  <section class="category-strip">
+    <div class="category-label">BROWSE</div>
+    <div class="chips">
+      <button class="chip active" data-cat="All" type="button">All</button>
+      <button class="chip" data-cat="Cars" type="button">Cars</button>
+      <button class="chip" data-cat="Tech" type="button">Tech</button>
+      <button class="chip" data-cat="Fashion" type="button">Fashion</button>
+      <button class="chip" data-cat="Books" type="button">Books</button>
+      <button class="chip" data-cat="Music" type="button">Music</button>
+      <button class="chip" data-cat="Objects" type="button">Objects</button>
+      <button class="chip" data-cat="Other" type="button">Other</button>
+    </div>
+  </section>
+
+  <section class="content-section">
+    <div class="section-title-row">
+      <div>
+        <div class="section-kicker">FROM THE COMMUNITY</div>
+        <h2>Things people found</h2>
+      </div>
+      <span id="count" class="count">0 items</span>
+    </div>
+
+    <section class="grid" id="grid"></section>
+
+    <section class="empty" id="empty" hidden>
+      <div class="empty-mark">⌕</div>
+      <h3>Nothing down this rabbit hole.</h3>
+      <p>Try another search, category, or add the first thing.</p>
+      <button class="dark-btn" id="emptyAdd" type="button">+ Add something</button>
+    </section>
+  </section>
+</section>
+
+<section id="listsView" class="page-view" hidden>
+  <div class="page-heading">
+    <div>
+      <div class="section-kicker">CURATED RABBIT HOLES</div>
+      <h1>Lists.</h1>
+      <p>Collections of things that make more sense together.</p>
+    </div>
+    <button class="dark-btn" id="newList" type="button">+ New list</button>
+  </div>
+  <section class="list-grid" id="listGrid"></section>
+</section>
+
+<section id="savedView" class="page-view" hidden>
+  <div class="page-heading">
+    <div>
+      <div class="section-kicker">YOUR COLLECTION</div>
+      <h1>Saved.</h1>
+      <p>The things you weren't ready to forget.</p>
+    </div>
+  </div>
+  <section class="grid" id="savedGrid"></section>
+  <section class="empty" id="savedEmpty" hidden>
+    <div class="empty-mark">♡</div>
+    <h3>Your collection is empty.</h3>
+    <p>Save something interesting and it will live here.</p>
+  </section>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="footer-logo"><span class="logo-mark">L</span> Lister</div>
+  <div>Made for the oddly specific.</div>
+  <div>v4.0</div>
+</footer>
+
+<!-- ADD -->
+<div class="modal-backdrop" id="modal" aria-hidden="true">
+  <section class="modal-card add-modal" role="dialog" aria-modal="true" aria-labelledby="addTitle">
+    <button class="modal-close" id="close" type="button">×</button>
+    <div class="modal-kicker">SUBMIT A THING</div>
+    <h2 id="addTitle">Put something<br><em>on the map.</em></h2>
+    <p class="modal-intro">Know something obscure, useful, beautiful or just wonderfully weird?</p>
+
+    <form id="itemForm">
+      <label class="field full-field">
+        <span>Name</span>
+        <input name="name" required placeholder="What is it?">
+      </label>
+
+      <label class="field full-field">
+        <span>Why is it interesting?</span>
+        <textarea name="description" required placeholder="Give someone a reason to click..."></textarea>
+      </label>
+
+      <div class="form-row">
+        <label class="field">
+          <span>Category</span>
+          <select name="category">
+            <option>Cars</option><option>Tech</option><option>Fashion</option>
+            <option>Books</option><option>Music</option><option>Objects</option><option selected>Other</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Tags <small>comma separated</small></span>
+          <input name="tags" placeholder="rare, tiny, 90s">
+        </label>
+      </div>
+
+      <div class="form-row">
+        <label class="field">
+          <span>Source <small>optional</small></span>
+          <input name="url" type="url" placeholder="https://...">
+        </label>
+        <label class="field">
+          <span>Image URL <small>optional</small></span>
+          <input name="image" type="url" placeholder="Direct image URL">
+        </label>
+      </div>
+
+      <button class="submit-btn" type="submit">Publish to Lister <span>↗</span></button>
+    </form>
+  </section>
+</div>
+
+<!-- AUTH -->
+<div class="modal-backdrop" id="authModal" aria-hidden="true">
+  <section class="modal-card auth-modal" role="dialog" aria-modal="true">
+    <button class="modal-close" id="authClose" type="button">×</button>
+    <div class="auth-logo">L</div>
+    <div class="modal-kicker">WELCOME IN</div>
+    <h2>There's more<br><em>down here.</em></h2>
+    <p>Sign in to submit things, save rabbit holes and build your own lists.</p>
+    <button class="google-btn" id="googleBtn" type="button">
+      <span class="google-g">G</span> Continue with Google
+    </button>
+    <small>Your account keeps your discoveries yours.</small>
+  </section>
+</div>
+
+<!-- DETAIL -->
+<div class="modal-backdrop" id="itemModal" aria-hidden="true">
+  <section class="modal-card detail-modal" id="itemDetail" role="dialog" aria-modal="true"></section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
