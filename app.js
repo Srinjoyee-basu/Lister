@@ -219,18 +219,326 @@ async function addItem(e){
 
 async function loadLists(){
   if(!sb)return;
+
   const {data,error}=await sb.from("lists")
     .select("*,profiles:user_id(display_name,username),list_items(count)")
     .order("created_at",{ascending:false});
-  if(error){toast(error.message);return}
-  const grid=$("#listGrid");if(!grid)return;
+
+  if(error){
+    console.error(error);
+    toast(error.message);
+    return;
+  }
+
+  const grid=$("#listGrid");
+  if(!grid)return;
+
   grid.innerHTML=(data||[]).map(l=>`
-    <article class="list-card">
+    <article
+      class="list-card"
+      data-list-id="${esc(l.id)}"
+      tabindex="0"
+      role="button"
+      aria-label="Open ${esc(l.title)}"
+    >
       <div class="list-art">◈</div>
+
       <h3>${esc(l.title)}</h3>
-      <p>${l.list_items?.[0]?.count||0} items · ${esc(l.profiles?.username?"@"+l.profiles.username:l.profiles?.display_name||"@user")}</p>
+
+      <p>
+        ${l.list_items?.[0]?.count||0} items ·
+        ${esc(
+          l.profiles?.username
+            ? "@"+l.profiles.username
+            : l.profiles?.display_name||"@user"
+        )}
+      </p>
+
       <p>${esc(l.description||"")}</p>
-    </article>`).join("");
+    </article>
+  `).join("");
+
+  grid.querySelectorAll(".list-card").forEach(card=>{
+    const open=()=>openList(card.dataset.listId);
+
+    card.addEventListener("click",open);
+
+    card.addEventListener("keydown",e=>{
+      if(e.key==="Enter"||e.key===" "){
+        e.preventDefault();
+        open();
+      }
+    });
+  });
+}
+
+
+async function openList(listId){
+  if(!sb||!listId)return;
+
+  const modal=$("#itemModal");
+  const el=$("#itemDetail");
+
+  if(!modal||!el)return;
+
+  el.innerHTML=`
+    <div class="detail">
+      <p class="muted">Loading list…</p>
+    </div>
+  `;
+
+  setModal("itemModal",true);
+
+  // Get the list
+  const {data:list,error:listError}=await sb
+    .from("lists")
+    .select("*,profiles:user_id(display_name,username)")
+    .eq("id",listId)
+    .single();
+
+  if(listError||!list){
+    console.error(listError);
+    toast("Couldn't open this list");
+    setModal("itemModal",false);
+    return;
+  }
+
+  // Get the items belonging to this list
+  const {data:links,error:linksError}=await sb
+    .from("list_items")
+    .select("item_id")
+    .eq("list_id",listId);
+
+  if(linksError){
+    console.error(linksError);
+    toast(linksError.message);
+    setModal("itemModal",false);
+    return;
+  }
+
+  const ids=(links||[])
+    .map(x=>x.item_id)
+    .filter(Boolean);
+
+  let listItems=[];
+
+  // Load the actual items
+  if(ids.length){
+
+    const {data:rows,error:itemsError}=await sb
+      .from("items")
+      .select(
+        "*,profiles:user_id(display_name,username,avatar_url),item_votes(count)"
+      )
+      .in("id",ids);
+
+    if(itemsError){
+      console.error(itemsError);
+      toast(itemsError.message);
+      setModal("itemModal",false);
+      return;
+    }
+
+    const byId=new Map(
+      (rows||[]).map(x=>[x.id,x])
+    );
+
+    // Keep the same order as list_items
+    listItems=ids
+      .map(id=>byId.get(id))
+      .filter(Boolean)
+      .map(x=>({
+        ...x,
+        likes:x.item_votes?.[0]?.count||0,
+        user:x.profiles?.username
+          ? "@"+x.profiles.username
+          : x.profiles?.display_name||"@user"
+      }));
+  }
+
+  const owner=
+    !!user &&
+    user.id===list.user_id;
+
+  const author=list.profiles?.username
+    ? "@"+list.profiles.username
+    : list.profiles?.display_name||"@user";
+
+
+  // Display the list
+  el.innerHTML=`
+
+    <button
+      class="modal-close"
+      id="listClose"
+      type="button"
+    >
+      ×
+    </button>
+
+    <div class="detail">
+
+      <div class="eyebrow">
+        <span></span>
+        CURATED LIST
+      </div>
+
+      <h2>
+        ${esc(list.title)}
+      </h2>
+
+      <p class="muted">
+        ${esc(list.description||"")}
+      </p>
+
+      <p class="muted">
+        ${listItems.length}
+        ${listItems.length===1?"item":"items"}
+        · by <b>${esc(author)}</b>
+      </p>
+
+
+      <div class="list-detail-items">
+
+        ${
+          listItems.length
+
+          ?
+
+          listItems.map(x=>`
+
+            <article
+              class="list-item-row"
+              data-item-id="${esc(x.id)}"
+              tabindex="0"
+              role="button"
+            >
+
+              <div class="list-item-thumb">
+
+                ${
+                  x.image_url
+
+                  ?
+
+                  `<img
+                    src="${esc(x.image_url)}"
+                    alt="${esc(x.name)}"
+                    onerror="this.style.display='none'"
+                  >`
+
+                  :
+
+                  "◈"
+                }
+
+              </div>
+
+
+              <div>
+
+                <div class="cat">
+                  ${esc(
+                    x.category||"OTHER"
+                  ).toUpperCase()}
+                </div>
+
+                <h3>
+                  ${esc(x.name)}
+                </h3>
+
+                <p>
+                  ${esc(x.description||"")}
+                </p>
+
+              </div>
+
+            </article>
+
+          `).join("")
+
+          :
+
+          `
+
+          <div
+            class="empty"
+            style="padding:35px 10px"
+          >
+
+            <div>◈</div>
+
+            <h3>
+              This list is empty.
+            </h3>
+
+            <p>
+              There aren't any items
+              in this list yet.
+            </p>
+
+          </div>
+
+          `
+        }
+
+      </div>
+
+
+      ${
+        owner
+
+        ?
+
+        `<p
+          class="tiny"
+          style="margin-top:18px"
+        >
+          You created this list.
+        </p>`
+
+        :
+
+        ""
+      }
+
+    </div>
+  `;
+
+
+  // Close button
+  $("#listClose").onclick=()=>{
+    setModal("itemModal",false);
+  };
+
+
+  // Make items inside the list clickable
+  el.querySelectorAll(".list-item-row")
+    .forEach(row=>{
+
+      const open=()=>{
+        detail(row.dataset.itemId);
+      };
+
+      row.addEventListener(
+        "click",
+        open
+      );
+
+      row.addEventListener(
+        "keydown",
+        e=>{
+          if(
+            e.key==="Enter" ||
+            e.key===" "
+          ){
+            e.preventDefault();
+            open();
+          }
+        }
+      );
+
+    });
 }
 
 async function newList(){
