@@ -278,6 +278,143 @@ function detail(id){
     };
   }
 }
+async function showListPicker(itemId){
+
+  if(!authRequired("add things to lists"))return;
+
+  const picker=$("#listPicker");
+
+  if(!picker)return;
+
+  picker.innerHTML=`
+    <div class="list-picker">
+      <p class="tiny">ADD TO LIST</p>
+      <p class="muted">Loading your lists...</p>
+    </div>
+  `;
+
+  const {data,error}=await sb
+    .from("lists")
+    .select("id,title,description")
+    .eq("user_id",user.id)
+    .order("created_at",{ascending:false});
+
+  if(error){
+    console.error(error);
+    toast(error.message);
+    return;
+  }
+
+  if(!data||data.length===0){
+
+    picker.innerHTML=`
+      <div class="list-picker">
+
+        <p class="tiny">ADD TO LIST</p>
+
+        <p class="muted">
+          You don't have any lists yet.
+        </p>
+
+        <button
+          class="primary"
+          id="createListFromItem"
+          type="button"
+        >
+          + Create a List
+        </button>
+
+      </div>
+    `;
+
+    $("#createListFromItem").onclick=async()=>{
+      await newList();
+      await showListPicker(itemId);
+    };
+
+    return;
+  }
+
+  picker.innerHTML=`
+    <div class="list-picker">
+
+      <p class="tiny">ADD TO LIST</p>
+
+      <div class="list-picker-options">
+
+        ${data.map(list=>`
+          <button
+            class="list-option"
+            type="button"
+            data-list-id="${esc(list.id)}"
+          >
+            <strong>${esc(list.title)}</strong>
+            <span>${esc(list.description||"")}</span>
+          </button>
+        `).join("")}
+
+      </div>
+
+      <button
+        class="secondary"
+        id="createListFromItem"
+        type="button"
+      >
+        + Create a new list
+      </button>
+
+    </div>
+  `;
+
+  picker
+    .querySelectorAll("[data-list-id]")
+    .forEach(btn=>{
+
+      btn.onclick=async()=>{
+
+        const listId=btn.dataset.listId;
+
+        const {error}=await sb
+          .from("list_items")
+          .insert({
+            list_id:listId,
+            item_id:itemId
+          });
+
+        if(error){
+
+          if(
+            error.code==="23505" ||
+            error.message?.toLowerCase().includes("duplicate")
+          ){
+            toast("Already in this list");
+          }else{
+            console.error(error);
+            toast(error.message);
+          }
+
+          return;
+        }
+
+        toast("Added to list ✦");
+
+        picker.innerHTML=`
+          <div class="list-picker">
+            <p class="muted">
+              ✓ Added to your list
+            </p>
+          </div>
+        `;
+      };
+
+    });
+
+
+  $("#createListFromItem").onclick=async()=>{
+    await newList();
+    await showListPicker(itemId);
+  };
+}
 
 async function deleteItem(id){
   if(!user)return;
