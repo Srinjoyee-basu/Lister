@@ -304,6 +304,48 @@ button{cursor:pointer}
   .detail h2{
     font-size:33px;
   }
+  .list-picker{
+  margin-top:22px;
+  padding:18px;
+  background:var(--surface-2);
+  border-radius:10px;
+  border:1px solid var(--line);
+}
+
+.list-picker-options{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  margin:12px 0;
+}
+
+.list-option{
+  width:100%;
+  padding:12px 14px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:var(--surface);
+  color:var(--ink);
+  text-align:left;
+  cursor:pointer;
+}
+
+.list-option:hover{
+  border-color:#aaa59a;
+  transform:translateY(-1px);
+}
+
+.list-option strong{
+  display:block;
+  font-size:14px;
+}
+
+.list-option span{
+  display:block;
+  margin-top:3px;
+  color:var(--muted);
+  font-size:11px;
+}
 
   .site-footer{
     gap:10px;
