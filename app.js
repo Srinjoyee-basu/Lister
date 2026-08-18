@@ -163,29 +163,120 @@ async function toggleSave(id){
 }
 
 function detail(id){
-  const x=items.find(i=>i.id===id);if(!x)return;
+  const x=items.find(i=>i.id===id);
+  if(!x)return;
+
   const owner=!!user&&user.id===x.user_id;
-  const el=$("#itemDetail");if(!el)return;
+  const el=$("#itemDetail");
+
+  if(!el)return;
 
   el.innerHTML=`
     <button class="modal-close" id="detailClose" type="button">×</button>
-    ${x.image_url?`<img class="detail-img" src="${esc(x.image_url)}" alt="${esc(x.name)}">`:`<div class="detail-icon">◈</div>`}
+
+    ${
+      x.image_url
+        ? `<img
+            class="detail-img"
+            src="${esc(x.image_url)}"
+            alt="${esc(x.name)}"
+            onerror="this.style.display='none'"
+          >`
+        : `<div class="detail-icon">◈</div>`
+    }
+
     <div class="detail">
-      <div class="eyebrow"><span></span>${esc(x.category||"OTHER")}</div>
-      <h2>${esc(x.name)}</h2>
-      <p class="muted">${esc(x.description)}</p>
-      <p class="muted">Added by <b>${esc(x.user)}</b></p>
-      <div class="tags">${(x.tags||[]).map(t=>`<span class="tag">#${esc(t)}</span>`).join("")}</div>
-      <div class="detail-actions">
-        <button class="primary" id="detailSave" type="button">${saved.has(x.id)?"♥ Saved":"♡ Save"}</button>
-        ${x.source_url?`<a class="secondary" href="${esc(x.source_url)}" target="_blank" rel="noopener">Visit source ↗</a>`:""}
-        ${owner?`<button class="delete-btn" id="deleteItem" type="button">Delete</button>`:""}
+
+      <div class="eyebrow">
+        <span></span>
+        ${esc(x.category||"OTHER")}
       </div>
-    </div>`;
+
+      <h2>${esc(x.name)}</h2>
+
+      <p class="muted">
+        ${esc(x.description)}
+      </p>
+
+      <p class="muted">
+        Added by <b>${esc(x.user)}</b>
+      </p>
+
+      <div class="tags">
+        ${(x.tags||[])
+          .map(t=>`<span class="tag">#${esc(t)}</span>`)
+          .join("")}
+      </div>
+
+      <div class="detail-actions">
+
+        <button
+          class="primary"
+          id="detailSave"
+          type="button"
+        >
+          ${saved.has(x.id)?"♥ Saved":"♡ Save"}
+        </button>
+
+        <button
+          class="secondary"
+          id="addToListBtn"
+          type="button"
+        >
+          ＋ Add to List
+        </button>
+
+        ${
+          x.source_url
+            ? `<a
+                class="secondary"
+                href="${esc(x.source_url)}"
+                target="_blank"
+                rel="noopener"
+              >
+                Visit source ↗
+              </a>`
+            : ""
+        }
+
+        ${
+          owner
+            ? `<button
+                class="delete-btn"
+                id="deleteItem"
+                type="button"
+              >
+                Delete
+              </button>`
+            : ""
+        }
+
+      </div>
+
+      <div id="listPicker"></div>
+
+    </div>
+  `;
+
   setModal("itemModal",true);
-  $("#detailClose").onclick=()=>setModal("itemModal",false);
-  $("#detailSave").onclick=()=>toggleSave(x.id);
-  if(owner)$("#deleteItem").onclick=()=>deleteItem(x.id);
+
+  $("#detailClose").onclick=()=>{
+    setModal("itemModal",false);
+  };
+
+  $("#detailSave").onclick=()=>{
+    toggleSave(x.id);
+  };
+
+  $("#addToListBtn").onclick=()=>{
+    showListPicker(x.id);
+  };
+
+  if(owner){
+    $("#deleteItem").onclick=()=>{
+      deleteItem(x.id);
+    };
+  }
 }
 
 async function deleteItem(id){
