@@ -401,7 +401,7 @@ async function showListPicker(itemId){
         `;
       };
 
-    });
+    }
 
 
   $("#createListFromItem").onclick=async()=>{
