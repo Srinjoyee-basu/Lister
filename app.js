@@ -271,7 +271,6 @@ function detail(id){
   $("#deleteItem").onclick=()=>deleteItem(x.id);
 }
 }
-}
 async function showListPicker(itemId){
 
   if(!authRequired("add things to lists"))return;
