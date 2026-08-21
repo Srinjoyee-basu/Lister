@@ -270,8 +270,7 @@ function detail(id){
   $("#editItem").onclick=()=>editItem(x.id);
   $("#deleteItem").onclick=()=>deleteItem(x.id);
 }
-    };
-  }
+}
 }
 async function showListPicker(itemId){
 
