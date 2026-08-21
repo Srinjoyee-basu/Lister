@@ -2,7 +2,7 @@ const c=window.LISTER_CONFIG||{};
 const configured=!!(c.SUPABASE_URL&&c.SUPABASE_PUBLISHABLE_KEY);
 const sb=configured?window.supabase.createClient(c.SUPABASE_URL,c.SUPABASE_PUBLISHABLE_KEY):null;
 
-let user=null,items=[],saved=new Set(),cat="All",query="";
+let user=null,items=[],saved=new Set(),cat="All",query="",editingItemId=null;
 
 const $=s=>document.querySelector(s);
 const $$=s=>document.querySelectorAll(s);
@@ -240,16 +240,10 @@ function detail(id){
         }
 
         ${
-          owner
-            ? `<button
-                class="delete-btn"
-                id="deleteItem"
-                type="button"
-              >
-                Delete
-              </button>`
-            : ""
-        }
+          owner?`
+        <button class="secondary" id="editItem" type="button">✎ Edit</button>
+        <button class="delete-btn" id="deleteItem" type="button">Delete</button>
+    `:""}
 
       </div>
 
@@ -273,8 +267,9 @@ function detail(id){
   };
 
   if(owner){
-    $("#deleteItem").onclick=()=>{
-      deleteItem(x.id);
+  $("#editItem").onclick=()=>editItem(x.id);
+  $("#deleteItem").onclick=()=>deleteItem(x.id);
+}
     };
   }
 }
@@ -416,6 +411,39 @@ async function showListPicker(itemId){
   };
 }
 
+function editItem(id){
+  const item=items.find(x=>x.id===id);
+
+  if(!item){
+    toast("Couldn't find this item");
+    return;
+  }
+
+  if(!user || item.user_id!==user.id){
+    toast("You can only edit your own items");
+    return;
+  }
+
+  editingItemId=id;
+
+  const form=$("#itemForm");
+
+  form.elements.name.value=item.name||"";
+  form.elements.description.value=item.description||"";
+  form.elements.category.value=item.category||"Other";
+  form.elements.tags.value=(item.tags||[]).join(", ");
+  form.elements.url.value=item.source_url||"";
+  form.elements.image.value=item.image_url||"";
+
+  $("#addTitle").innerHTML="Edit your<br><em>discovery.</em>";
+
+  const submitButton=form.querySelector(".submit-btn");
+  submitButton.innerHTML="Save changes <span>✓</span>";
+
+  setModal("itemModal",false);
+  setModal("modal",true);
+}
+
 async function deleteItem(id){
   if(!user)return;
   const x=items.find(i=>i.id===id);
@@ -428,21 +456,71 @@ async function deleteItem(id){
 
 async function addItem(e){
   e.preventDefault();
-  if(!authRequired("publish things"))return;
+
+  if(!authRequired("publish things")) return;
+
   const f=new FormData(e.target);
+
   const row={
-    user_id:user.id,
     name:String(f.get("name")||"").trim(),
     description:String(f.get("description")||"").trim(),
     category:String(f.get("category")||"Other"),
-    tags:String(f.get("tags")||"").split(",").map(x=>x.trim()).filter(Boolean),
+    tags:String(f.get("tags")||"")
+      .split(",")
+      .map(x=>x.trim())
+      .filter(Boolean),
     source_url:String(f.get("url")||"").trim()||null,
     image_url:String(f.get("image")||"").trim()||null
   };
-  if(!row.name||!row.description){toast("Name and description are required");return}
-  const {error}=await sb.from("items").insert(row);
-  if(error){console.error(error);toast(error.message);return}
-  e.target.reset();setModal("modal",false);toast("Published to Lister ✦");await loadItems();
+
+  if(!row.name||!row.description){
+    toast("Name and description are required");
+    return;
+  }
+
+  let error;
+
+  if(editingItemId){
+    const result=await sb
+      .from("items")
+      .update(row)
+      .eq("id",editingItemId)
+      .eq("user_id",user.id);
+
+    error=result.error;
+  }else{
+    const result=await sb
+      .from("items")
+      .insert({
+        ...row,
+        user_id:user.id
+      });
+
+    error=result.error;
+  }
+
+  if(error){
+    console.error(error);
+    toast(error.message);
+    return;
+  }
+
+  const wasEditing=!!editingItemId;
+
+  editingItemId=null;
+  e.target.reset();
+
+  $("#addTitle").innerHTML="Put something<br><em>on the map.</em>";
+
+  const submitButton=e.target.querySelector(".submit-btn");
+  submitButton.innerHTML="Publish to Lister <span>↗</span>";
+
+  setModal("modal",false);
+
+  toast(wasEditing ? "Changes saved ✓" : "Published to Lister ✦");
+
+  await loadItems();
+  await loadSaved();
 }
 
 async function loadLists(){
@@ -801,7 +879,21 @@ $("#googleBtn")?.addEventListener("click",login);
 $("#authClose")?.addEventListener("click",()=>setModal("authModal",false));
 $("#profileBtn")?.addEventListener("click",()=>{if(confirm("Sign out of Lister?"))logout()});
 
-const openAdd=()=>{if(authRequired("publish things"))setModal("modal",true)};
+const openAdd=()=>{
+  if(!authRequired("publish things")) return;
+
+  editingItemId=null;
+
+  const form=$("#itemForm");
+  form.reset();
+
+  $("#addTitle").innerHTML="Put something<br><em>on the map.</em>";
+
+  const submitButton=form.querySelector(".submit-btn");
+  submitButton.innerHTML="Publish to Lister <span>↗</span>";
+
+  setModal("modal",true);
+};
 $("#addBtn")?.addEventListener("click",openAdd);
 $("#emptyAdd")?.addEventListener("click",openAdd);
 $("#close")?.addEventListener("click",()=>setModal("modal",false));
