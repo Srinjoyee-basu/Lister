@@ -120,10 +120,16 @@ async function loadItems(){
     .order("created_at",{ascending:false});
   if(error){console.error(error);toast(error.message);return}
   items=(data||[]).map(x=>({
-    ...x,
-    likes:x.item_votes?.[0]?.count||0,
-    user:x.profiles?.username?"@"+x.profiles.username:x.profiles?.display_name||"@user"
-  }));
+  ...x,
+  likes:x.item_votes?.[0]?.count||0,
+  user:x.profiles?.username
+    ? "@"+x.profiles.username
+    : x.profiles?.display_name||"@user",
+  avatar_url:x.profiles?.avatar_url||"",
+  isContributor:
+    (x.profiles?.username||"").toLowerCase().includes("founding contributor") ||
+    (x.profiles?.username||"").toLowerCase().includes("contributor")
+}));
   render();renderSaved();
 }
 
@@ -181,16 +187,28 @@ function card(x){
       </div>
     </div>
 
-    <div class="foot">
-      <span>${esc(x.user||"@user")}</span>
-
-      <button
-        class="like ${saved.has(x.id) ? "saved" : ""}"
-        data-save="${esc(x.id)}"
-        type="button">
-        ${saved.has(x.id) ? "♥" : "♡"} ${x.likes||0}
-      </button>
+   <div class="foot">
+  <div class="user-info">
+    <div class="user-avatar-wrap">
+      ${
+        x.avatar_url
+          ? `<img class="user-avatar" src="${esc(x.avatar_url)}" alt="">`
+          : `<div class="user-avatar">U</div>`
+      }
+      ${
+        x.isContributor
+          ? `<span class="contributor-badge" title="Founding Contributor">★</span>`
+          : ``
+      }
     </div>
+
+    <span>${esc(x.user||"@user")}</span>
+  </div>
+
+  <button class="like ${saved.has(x.id)?"saved":""}" data-save="${esc(x.id)}" type="button">
+    ${saved.has(x.id)?"♥":"♡"} ${x.likes||0}
+  </button>
+</div>
   </article>`;
 }
 function wireCards(container){
