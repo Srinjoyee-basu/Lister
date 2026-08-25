@@ -143,30 +143,94 @@ function filtered(){
 }
 
 function card(x){
-  const image=x.image_url
-    ? `<img src="${esc(x.image_url)}" alt="${esc(x.name)}" onerror="this.remove()">`
-    : `<span>◈</span>`;
+  const image = x.image_url
+    ? `<img src="${esc(x.image_url)}" alt="${esc(x.name)}" onerror="this.parentElement.innerHTML='◈'">`
+    : "◈";
+
+  const description = x.description || "";
+  const maxLength = 120;
+  const isLong = description.length > maxLength;
+
+  const shortDescription = isLong
+    ? description.slice(0, maxLength).trim() + "..."
+    : description;
+
   return `<article class="card" data-id="${esc(x.id)}">
     <div class="thumb">${image}</div>
+
     <div class="body">
-      <div class="cat">${esc(x.category||"OTHER").toUpperCase()}</div>
+      <div class="cat">${esc(x.category).toUpperCase()}</div>
       <h3>${esc(x.name)}</h3>
-      <p>${esc(x.description)}</p>
-      <div class="tags">${(x.tags||[]).slice(0,4).map(t=>`<span class="tag">#${esc(t)}</span>`).join("")}</div>
+
+      <p class="item-description"
+         data-short="${esc(shortDescription)}"
+         data-full="${esc(description)}">
+        ${esc(shortDescription)}
+      </p>
+
+      ${isLong ? `
+        <button class="read-more-btn" type="button">
+          Read more
+        </button>
+      ` : ""}
+
+      <div class="tags">
+        ${(x.tags||[])
+          .map(t => `<span class="tag">#${esc(t)}</span>`)
+          .join("")}
+      </div>
     </div>
+
     <div class="foot">
-      <span>${esc(x.user)}</span>
-      <button class="like ${saved.has(x.id)?"saved":""}" data-save="${esc(x.id)}" type="button">${saved.has(x.id)?"♥":"♡"} ${x.likes||0}</button>
+      <span>${esc(x.user||"@user")}</span>
+
+      <button
+        class="like ${saved.has(x.id) ? "saved" : ""}"
+        data-save="${esc(x.id)}"
+        type="button">
+        ${saved.has(x.id) ? "♥" : "♡"} ${x.likes||0}
+      </button>
     </div>
   </article>`;
 }
+function wireCards(container){
+  container.querySelectorAll(".card").forEach(el => {
+    el.onclick = e => {
+      if (
+        e.target.closest("[data-save]") ||
+        e.target.closest(".read-more-btn")
+      ) return;
 
-function wire(container){
-  container.querySelectorAll(".card").forEach(el=>{
-    el.onclick=e=>{if(e.target.closest("[data-save]"))return;detail(el.dataset.id)}
+      detail(el.dataset.id);
+    };
   });
-  container.querySelectorAll("[data-save]").forEach(btn=>{
-    btn.onclick=e=>{e.stopPropagation();toggleSave(btn.dataset.save)}
+
+  container.querySelectorAll("[data-save]").forEach(b => {
+    b.onclick = e => {
+      e.stopPropagation();
+      toggleSave(b.dataset.save);
+    };
+  });
+
+  container.querySelectorAll(".read-more-btn").forEach(button => {
+    button.onclick = e => {
+      e.stopPropagation();
+
+      const body = button.closest(".body");
+      const description = body.querySelector(".item-description");
+
+      const expanded = button.dataset.expanded === "true";
+
+      if (expanded) {
+        description.textContent = description.dataset.short;
+        button.textContent = "Read more";
+        button.dataset.expanded = "false";
+      } else {
+        description.textContent = description.dataset.full;
+        button.textContent = "Show less";
+        button.dataset.expanded = "true";
+      }
+    };
   });
 }
 
