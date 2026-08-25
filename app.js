@@ -6,6 +6,48 @@ let user=null,items=[],saved=new Set(),cat="All",query="",editingItemId=null;
 
 const $=s=>document.querySelector(s);
 const $$=s=>document.querySelectorAll(s);
+function generateTags(name, description, category) {
+  const stopWords = new Set([
+    "the", "and", "for", "with", "from", "that", "this", "your",
+    "you", "are", "was", "were", "have", "has", "had", "its",
+    "into", "about", "just", "than", "then", "very", "more",
+    "less", "what", "when", "where", "why", "how", "a", "an"
+  ]);
+
+  const categoryTags = {
+    Cars: ["car", "automotive"],
+    Tech: ["technology"],
+    Fashion: ["fashion", "style"],
+    Books: ["book", "reading"],
+    Music: ["music", "audio"],
+    Objects: ["object", "design"],
+    Other: []
+  };
+
+  const text = `${name} ${description}`
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ");
+
+  const words = text
+    .split(/\s+/)
+    .map(word => word.trim())
+    .filter(word =>
+      word.length >= 3 &&
+      word.length <= 24 &&
+      !stopWords.has(word) &&
+      !/^\d+$/.test(word)
+    );
+
+  const uniqueWords = [...new Set(words)];
+
+  const tags = [
+    ...(categoryTags[category] || []),
+    ...uniqueWords
+  ];
+
+  return [...new Set(tags)]
+    .slice(0, 8);
+}
 
 function esc(s){
   return String(s??"").replace(/[&<>"']/g,x=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[x]));
@@ -905,5 +947,38 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Escape")$$(".modal-backdrop").forEach(x=>x.classList.remove("open"));
   if(e.key==="/"&&document.activeElement!==$("#search")){e.preventDefault();$("#search")?.focus()}
 });
+const itemForm = $("#itemForm");
 
+if (itemForm) {
+  const nameInput = itemForm.elements.name;
+  const descriptionInput = itemForm.elements.description;
+  const categoryInput = itemForm.elements.category;
+  const tagsInput = itemForm.elements.tags;
+
+  let tagTimer;
+
+  function updateAutoTags() {
+    clearTimeout(tagTimer);
+
+    tagTimer = setTimeout(() => {
+      const name = nameInput.value.trim();
+      const description = descriptionInput.value.trim();
+      const category = categoryInput.value;
+
+      if (!name && !description) return;
+
+      const generatedTags = generateTags(
+        name,
+        description,
+        category
+      );
+
+      tagsInput.value = generatedTags.join(", ");
+    }, 500);
+  }
+
+  nameInput.addEventListener("input", updateAutoTags);
+  descriptionInput.addEventListener("input", updateAutoTags);
+  categoryInput.addEventListener("change", updateAutoTags);
+}
 init();
