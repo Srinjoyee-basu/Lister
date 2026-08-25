@@ -241,7 +241,7 @@ function render(){
   $("#count")&&( $("#count").textContent=`${arr.length} ${arr.length===1?"item":"items"}` );
   $("#empty")&&( $("#empty").hidden=arr.length>0 );
   grid.hidden=arr.length===0;
-  wire(grid);
+  wireCards(grid);
 }
 
 function renderSaved(){
