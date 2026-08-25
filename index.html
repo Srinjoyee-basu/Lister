@@ -8,8 +8,7 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-
-<header class="site-header">
+  <header class="site-header">
   <a href="#" class="logo" aria-label="Lister home">
     <span class="logo-mark">L</span>
     <span>Lister</span>
@@ -191,6 +190,7 @@
 
 <!-- AUTH -->
 <div class="modal-backdrop" id="authModal" aria-hidden="true">
+  <article class="card" data-id="${esc(x.id)}">
   <section class="modal-card auth-modal" role="dialog" aria-modal="true">
     <button class="modal-close" id="authClose" type="button">×</button>
     <div class="auth-logo">L</div>
