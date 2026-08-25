@@ -193,69 +193,40 @@ function card(x){
     </div>
   </article>`;
 }
-function wireCards(container) {
-  container.onclick = e => {
-    const saveButton = e.target.closest("[data-save]");
-    const readMoreButton = e.target.closest(".read-more-btn");
-    const card = e.target.closest(".card");
+function wireCards(container){
+  container.querySelectorAll(".card").forEach(el=>{
+    el.onclick=e=>{
+      if(
+        e.target.closest("[data-save]") ||
+        e.target.closest(".read-more-btn")
+      ) return;
 
-    // Save button
-    if (saveButton) {
-      e.stopPropagation();
-      toggleSave(saveButton.dataset.save);
-      return;
-    }
-
-    // Read more button
-    if (readMoreButton) {
-      e.stopPropagation();
-
-      const body = readMoreButton.closest(".body");
-      const description = body.querySelector(".item-description");
-
-      const expanded = readMoreButton.dataset.expanded === "true";
-
-      if (expanded) {
-        description.textContent = description.dataset.short;
-        readMoreButton.textContent = "Read more";
-        readMoreButton.dataset.expanded = "false";
-      } else {
-        description.textContent = description.dataset.full;
-        readMoreButton.textContent = "Show less";
-        readMoreButton.dataset.expanded = "true";
-      }
-
-      return;
-    }
-
-    // Open the card
-    if (card) {
-      detail(card.dataset.id);
-    }
-  };
-}
-
-  container.querySelectorAll("[data-save]").forEach(b => {
-    b.onclick = e => {
-      e.stopPropagation();
-      toggleSave(b.dataset.save);
+      detail(el.dataset.id);
     };
   });
 
-  container.querySelectorAll(".read-more-btn").forEach(button => {
-    button.onclick = e => {
+  container.querySelectorAll("[data-save]").forEach(btn=>{
+    btn.onclick=e=>{
+      e.stopPropagation();
+      toggleSave(btn.dataset.save);
+    };
+  });
+
+  container.querySelectorAll(".read-more-btn").forEach(button=>{
+    button.onclick=e=>{
       e.stopPropagation();
 
-      const body = button.closest(".body");
-      const description = body.querySelector(".item-description");
+      const description = button
+        .closest(".body")
+        .querySelector(".item-description");
 
       const expanded = button.dataset.expanded === "true";
 
-      if (expanded) {
+      if(expanded){
         description.textContent = description.dataset.short;
         button.textContent = "Read more";
         button.dataset.expanded = "false";
-      } else {
+      }else{
         description.textContent = description.dataset.full;
         button.textContent = "Show less";
         button.dataset.expanded = "true";
@@ -263,7 +234,6 @@ function wireCards(container) {
     };
   });
 }
-
 function render(){
   const grid=$("#grid");if(!grid)return;
   const arr=filtered();
