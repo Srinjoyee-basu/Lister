@@ -193,17 +193,47 @@ function card(x){
     </div>
   </article>`;
 }
-function wireCards(container){
-  container.querySelectorAll(".card").forEach(el => {
-    el.onclick = e => {
-      if (
-        e.target.closest("[data-save]") ||
-        e.target.closest(".read-more-btn")
-      ) return;
+function wireCards(container) {
+  container.onclick = e => {
+    const saveButton = e.target.closest("[data-save]");
+    const readMoreButton = e.target.closest(".read-more-btn");
+    const card = e.target.closest(".card");
 
-      detail(el.dataset.id);
-    };
-  });
+    // Save button
+    if (saveButton) {
+      e.stopPropagation();
+      toggleSave(saveButton.dataset.save);
+      return;
+    }
+
+    // Read more button
+    if (readMoreButton) {
+      e.stopPropagation();
+
+      const body = readMoreButton.closest(".body");
+      const description = body.querySelector(".item-description");
+
+      const expanded = readMoreButton.dataset.expanded === "true";
+
+      if (expanded) {
+        description.textContent = description.dataset.short;
+        readMoreButton.textContent = "Read more";
+        readMoreButton.dataset.expanded = "false";
+      } else {
+        description.textContent = description.dataset.full;
+        readMoreButton.textContent = "Show less";
+        readMoreButton.dataset.expanded = "true";
+      }
+
+      return;
+    }
+
+    // Open the card
+    if (card) {
+      detail(card.dataset.id);
+    }
+  };
+}
 
   container.querySelectorAll("[data-save]").forEach(b => {
     b.onclick = e => {
