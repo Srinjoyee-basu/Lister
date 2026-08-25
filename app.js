@@ -116,7 +116,7 @@ async function logout(){
 async function loadItems(){
   if(!sb)return;
   const {data,error}=await sb.from("items")
-    .select("*,profiles:user_id(display_name,username,avatar_url),item_votes(count)")
+    .select("*,profiles:user_id(display_name,username,avatar_url,contributor_badge),item_votes(count)")
     .order("created_at",{ascending:false});
   if(error){console.error(error);toast(error.message);return}
   items=(data||[]).map(x=>({
