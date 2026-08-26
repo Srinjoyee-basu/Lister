@@ -30,7 +30,7 @@ button{cursor:pointer}
 .logo-mark{width:27px;height:27px;display:grid;place-items:center;background:var(--ink);color:#fff;border-radius:7px;font-size:13px;font-weight:700}
 .logo img {
     height: 45px;
-    width: 50px;
+    width: 70px;
     display: block;
 }
 .main-nav{display:flex;gap:25px;flex:1}
