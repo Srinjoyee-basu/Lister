@@ -593,7 +593,12 @@ async function fetchSourceImage(sourceUrl){
       return null;
     }
 
-    return data?.image_url||null;
+    if(!data?.image_url)return null;
+
+    // Store a Lister/Supabase proxy URL instead of the remote CDN URL.
+    // This lets the browser display images even when the source CDN blocks
+    // direct hotlinking or requires special request headers.
+    return `${c.SUPABASE_URL}/functions/v1/fetch-product-image?image=${encodeURIComponent(data.image_url)}`;
   }catch(error){
     console.warn("Source image lookup failed:",error);
     return null;
