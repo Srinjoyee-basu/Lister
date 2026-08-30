@@ -555,7 +555,6 @@ function editItem(id){
   form.elements.category.value=item.category||"Other";
   form.elements.tags.value=(item.tags||[]).join(", ");
   form.elements.url.value=item.source_url||"";
-  form.elements.image.value=item.image_url||"";
 
   $("#addTitle").innerHTML="Edit your<br><em>discovery.</em>";
 
@@ -576,12 +575,38 @@ async function deleteItem(id){
   setModal("itemModal",false);toast("Deleted");await loadItems();
 }
 
+async function fetchSourceImage(sourceUrl){
+  if(!sourceUrl)return null;
+
+  try{
+    if(!sb){
+      console.warn("Supabase is not configured");
+      return null;
+    }
+
+    const {data,error}=await sb.functions.invoke("fetch-product-image",{
+      body:{url:sourceUrl}
+    });
+
+    if(error){
+      console.warn("Source image lookup failed:",error.message||error);
+      return null;
+    }
+
+    return data?.image_url||null;
+  }catch(error){
+    console.warn("Source image lookup failed:",error);
+    return null;
+  }
+}
+
 async function addItem(e){
   e.preventDefault();
 
   if(!authRequired("publish things")) return;
 
   const f=new FormData(e.target);
+  const sourceUrl=String(f.get("url")||"").trim()||null;
 
   const row={
     name:String(f.get("name")||"").trim(),
@@ -591,13 +616,34 @@ async function addItem(e){
       .split(",")
       .map(x=>x.trim())
       .filter(Boolean),
-    source_url:String(f.get("url")||"").trim()||null,
-    image_url:String(f.get("image")||"").trim()||null
+    source_url:sourceUrl,
+    image_url:null
   };
 
   if(!row.name||!row.description){
     toast("Name and description are required");
     return;
+  }
+
+  const submitButton=e.target.querySelector(".submit-btn");
+  const originalButton=submitButton?.innerHTML;
+
+  if(sourceUrl){
+    if(submitButton){
+      submitButton.disabled=true;
+      submitButton.innerHTML="Finding product image <span>…</span>";
+    }
+
+    row.image_url=await fetchSourceImage(sourceUrl);
+
+    if(submitButton){
+      submitButton.disabled=false;
+      submitButton.innerHTML=originalButton||"Publish to Lister <span>↗</span>";
+    }
+
+    if(!row.image_url){
+      toast("Couldn't find a product image. Publishing without one.");
+    }
   }
 
   let error;
@@ -634,12 +680,18 @@ async function addItem(e){
 
   $("#addTitle").innerHTML="Put something<br><em>on the map.</em>";
 
-  const submitButton=e.target.querySelector(".submit-btn");
-  submitButton.innerHTML="Publish to Lister <span>↗</span>";
+  if(submitButton){
+    submitButton.disabled=false;
+    submitButton.innerHTML="Publish to Lister <span>↗</span>";
+  }
 
   setModal("modal",false);
 
-  toast(wasEditing ? "Changes saved ✓" : "Published to Lister ✦");
+  toast(
+    wasEditing
+      ? (row.image_url ? "Changes saved ✓" : "Changes saved")
+      : (row.image_url ? "Published with product image ✦" : "Published to Lister ✦")
+  );
 
   await loadItems();
   await loadSaved();
