@@ -1,420 +1,1117 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;1,500&display=swap');
+const c=window.LISTER_CONFIG||{};
+const configured=!!(c.SUPABASE_URL&&c.SUPABASE_PUBLISHABLE_KEY);
+const sb=configured?window.supabase.createClient(c.SUPABASE_URL,c.SUPABASE_PUBLISHABLE_KEY):null;
 
-:root{
-  --paper:#f5f2ea;
-  --card:#fffdf8;
-  --ink:#151512;
-  --muted:#77746c;
-  --line:#d9d5ca;
-  --red:#f05a3f;
-  --yellow:#f0c95a;
-  --green:#dce7d5;
-  --blue:#dce8ef;
-  --shadow:0 18px 50px rgba(21,21,18,.09);
+let user=null,items=[],saved=new Set(),cat="All",query="",editingItemId=null;
+
+const $=s=>document.querySelector(s);
+const $$=s=>document.querySelectorAll(s);
+function generateTags(name, description, category) {
+  const stopWords = new Set([
+    "the", "and", "for", "with", "from", "that", "this", "your",
+    "you", "are", "was", "were", "have", "has", "had", "its",
+    "into", "about", "just", "than", "then", "very", "more",
+    "less", "what", "when", "where", "why", "how", "a", "an"
+  ]);
+
+  const categoryTags = {
+    Cars: ["car", "automotive"],
+    Tech: ["technology"],
+    Fashion: ["fashion", "style"],
+    Books: ["book", "reading"],
+    Music: ["music", "audio"],
+    Objects: ["object", "design"],
+    Other: []
+  };
+
+  const text = `${name} ${description}`
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ");
+
+  const words = text
+    .split(/\s+/)
+    .map(word => word.trim())
+    .filter(word =>
+      word.length >= 3 &&
+      word.length <= 24 &&
+      !stopWords.has(word) &&
+      !/^\d+$/.test(word)
+    );
+
+  const uniqueWords = [...new Set(words)];
+
+  const tags = [
+    ...(categoryTags[category] || []),
+    ...uniqueWords
+  ];
+
+  return [...new Set(tags)]
+    .slice(0, 8);
 }
 
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{margin:0;background:var(--paper);color:var(--ink);font-family:"DM Sans",sans-serif;-webkit-font-smoothing:antialiased}
-button,input,textarea,select{font:inherit}
-button{cursor:pointer}
-[hidden]{display:none!important}
-
-/* HEADER */
-.site-header{
-  height:76px;padding:0 4vw;display:flex;align-items:center;gap:44px;
-  position:sticky;top:0;z-index:50;background:rgba(245,242,234,.9);
-  border-bottom:1px solid var(--line);backdrop-filter:blur(18px)
+function esc(s){
+  return String(s??"").replace(/[&<>"']/g,x=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[x]));
 }
-.logo{display:flex;align-items:center;gap:9px;text-decoration:none;color:var(--ink);font-size:24px;font-weight:700;letter-spacing:-1.2px}
-.logo-mark{width:27px;height:27px;display:grid;place-items:center;background:var(--ink);color:#fff;border-radius:7px;font-size:13px;font-weight:700}
-.logo img {
-    height: 45px;
-    width: 130px;
-    display: block;
+function toast(message){
+  const el=$("#toast");if(!el)return;
+  el.textContent=message;el.classList.add("show");
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer=setTimeout(()=>el.classList.remove("show"),2300);
 }
-.main-nav{display:flex;gap:25px;flex:1}
-.nav-link{position:relative;border:0;background:none;color:var(--muted);padding:9px 0;font-size:13px;font-weight:600}
-.nav-link:after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2px;background:var(--ink);transform:scaleX(0);transition:.2s}
-.nav-link.active,.nav-link:hover{color:var(--ink)}
-.nav-link.active:after{transform:scaleX(1)}
-.header-right{display:flex;align-items:center;gap:8px}
-.header-search,.signin-btn{height:38px;border:1px solid var(--line);background:var(--card);border-radius:8px;color:var(--ink);font-size:12px;font-weight:600}
-.header-search{display:flex;align-items:center;gap:8px;padding:0 10px}
-.header-search span:first-child{font-size:20px;color:var(--muted)}
-.header-search kbd{padding:2px 5px;border:1px solid var(--line);border-radius:4px;color:var(--muted);font:10px "DM Mono"}
-.signin-btn{padding:0 13px}
-.add-btn,.dark-btn{height:40px;padding:0 15px;border:0;border-radius:8px;background:var(--ink);color:#fff;font-size:12px;font-weight:700}
-.add-btn:hover,.dark-btn:hover,.submit-btn:hover{background:#35342f;transform:translateY(-1px)}
-.add-btn span{font-size:17px;vertical-align:-1px}
-.avatar{width:38px;height:38px;border:0;border-radius:50%;background:var(--ink);color:#fff;font-size:11px;font-weight:700}
-
-/* HERO */
-.hero{max-width:1280px;margin:auto;padding:92px 32px 80px;display:grid;grid-template-columns:minmax(0,1.5fr) 360px;gap:85px;border-bottom:1px solid var(--line)}
-.eyebrow,.section-kicker,.modal-kicker{font:500 10px "DM Mono",monospace;letter-spacing:1.7px}
-.eyebrow{display:flex;align-items:center;gap:8px;color:var(--red);margin-bottom:18px}
-.eyebrow span{width:7px;height:7px;background:var(--red);border-radius:50%}
-.hero h1{margin:0;font-size:clamp(60px,8.3vw,112px);line-height:.84;letter-spacing:-7px;font-weight:700}
-.hero h1 em,.modal-card h2 em{font-family:"Playfair Display",serif;font-weight:500;letter-spacing:-4px}
-.hero-text{max-width:630px;margin:32px 0 0;color:var(--muted);font-size:17px;line-height:1.55}
-.hero-search{height:61px;max-width:670px;margin-top:29px;display:flex;align-items:center;gap:12px;padding:0 14px;background:var(--card);border:1px solid #c9c4b8;border-radius:9px;box-shadow:0 5px 18px rgba(0,0,0,.025)}
-.hero-search:focus-within{border-color:var(--ink);box-shadow:0 0 0 4px rgba(21,21,18,.05)}
-.search-icon{font-size:22px;color:var(--muted)}
-.hero-search input{flex:1;min-width:0;border:0;outline:0;background:none;color:var(--ink);font-size:14px}
-.hero-search input::placeholder{color:#9b978d}
-.hero-search kbd{padding:3px 7px;border:1px solid var(--line);border-radius:4px;color:var(--muted);font:10px "DM Mono"}
-.hero-meta{display:flex;gap:26px;margin-top:20px;color:var(--muted);font:10px "DM Mono"}
-.hero-meta b{color:var(--ink);margin-right:4px}
-
-.hero-card{align-self:end;min-height:365px;padding:24px;background:var(--green);border:1px solid #ccd8c5;box-shadow:12px 12px 0 rgba(21,21,18,.055);transform:rotate(1.5deg)}
-.hero-card-top{display:flex;justify-content:space-between;font:10px "DM Mono"}
-.hero-symbol{margin:55px 0 22px;font-size:70px;line-height:1}
-.hero-card-kicker{margin:0 0 8px;color:var(--muted);font:10px "DM Mono"}
-.hero-card h2{margin:0;font-size:30px;line-height:1;letter-spacing:-1.5px}
-.hero-card>p:not(.hero-card-kicker){max-width:240px;color:var(--muted);font-size:12px;line-height:1.5}
-.hero-card-line{height:1px;margin-top:35px;background:rgba(21,21,18,.18)}
-.hero-card-number{display:block;margin-top:9px;font:10px "DM Mono"}
-
-/* CATEGORIES */
-.category-strip{max-width:1280px;margin:auto;padding:17px 32px;display:flex;align-items:center;gap:25px;border-bottom:1px solid var(--line)}
-.category-label{color:var(--muted);font:10px "DM Mono"}
-.chips{display:flex;gap:7px;overflow:auto;scrollbar-width:none}
-.chips::-webkit-scrollbar{display:none}
-.chip{white-space:nowrap;padding:8px 14px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--muted);font-size:12px;font-weight:600}
-.chip:hover{color:var(--ink);border-color:#aaa59a;background:var(--card)}
-.chip.active{background:var(--ink);border-color:var(--ink);color:#fff}
-
-/* CONTENT */
-.content-section{max-width:1280px;margin:auto;padding:0 32px 100px}
-.section-title-row{display:flex;justify-content:space-between;align-items:end;padding:55px 0 24px}
-.section-kicker{color:var(--red);margin-bottom:8px}
-.section-title-row h2{margin:0;font-size:34px;letter-spacing:-1.8px}
-.count{color:var(--muted);font:10px "DM Mono"}
-
-.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:17px}
-.card{overflow:hidden;background:var(--card);border:1px solid var(--line);border-radius:11px;cursor:pointer;transition:.2s}
-.card:hover{transform:translateY(-5px);box-shadow:var(--shadow);border-color:#c0bbb0}
-.thumb{height:215px;position:relative;display:grid;place-items:center;overflow:hidden;background:linear-gradient(135deg,#e6e1d6,#f8f5ed);color:#706c63;font-size:58px}
-.thumb:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 20% 20%,rgba(255,255,255,.7),transparent 32%);pointer-events:none}
-.thumb img{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover}
-.body{padding:18px 19px 19px}
-.cat{color:var(--red);font:500 9px "DM Mono";letter-spacing:1.2px}
-.body h3{margin:8px 0 7px;font-size:21px;line-height:1.08;letter-spacing:-.7px}
-.body>p{min-height:39px;margin:0;color:var(--muted);font-size:13px;line-height:1.5}
-.tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:14px;min-height:20px}
-.tag{padding:4px 7px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font:10px "DM Mono"}
-.foot{display:flex;justify-content:space-between;align-items:center;padding:11px 17px;border-top:1px solid var(--line);color:var(--muted);font-size:11px}
-.like{border:0;background:none;color:var(--muted);font-size:12px;font-weight:700}
-.like:hover,.like.saved{color:var(--red)}
-
-/* EMPTY */
-.empty{text-align:center;padding:80px 20px}
-.empty-mark{font-size:48px;color:var(--muted)}
-.empty h3{margin:10px 0 6px;font-size:22px;letter-spacing:-.7px}
-.empty p{margin:0 0 20px;color:var(--muted);font-size:13px}
-
-/* OTHER PAGES */
-.page-view{max-width:1280px;margin:auto;padding:75px 32px 110px}
-.page-heading{display:flex;justify-content:space-between;align-items:end;padding-bottom:38px;border-bottom:1px solid var(--line);margin-bottom:26px}
-.page-heading h1{margin:0;font-size:76px;letter-spacing:-5px;line-height:.9}
-.page-heading p{margin:13px 0 0;color:var(--muted)}
-.list-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px}
-.list-card{padding:18px;border:1px solid var(--line);border-radius:11px;background:var(--card);transition:.2s}
-.list-card:hover{transform:translateY(-4px);box-shadow:var(--shadow)}
-.list-art{height:190px;display:grid;place-items:center;background:var(--blue);border-radius:7px;font-size:65px}
-.list-card h3{margin:18px 0 6px;font-size:25px;letter-spacing:-1px}
-.list-card p{margin:6px 0;color:var(--muted);font-size:13px;line-height:1.45}
-
-/* FOOTER */
-.site-footer{display:flex;justify-content:space-between;padding:28px 4vw;border-top:1px solid var(--line);color:var(--muted);font-size:11px}
-.footer-logo{display:flex;align-items:center;gap:8px;color:var(--ink);font-weight:700}
-.footer-logo .logo-mark{width:22px;height:22px;font-size:10px}
-
-/* MODALS */
-.modal-backdrop{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(16,16,14,.58);backdrop-filter:blur(7px)}
-.modal-backdrop.open{display:flex}
-.modal-card{position:relative;width:min(620px,100%);max-height:92vh;overflow:auto;background:var(--card);border:1px solid #d3cec2;border-radius:15px;box-shadow:0 35px 100px rgba(0,0,0,.3)}
-.modal-close{position:absolute;top:13px;right:14px;z-index:4;width:35px;height:35px;border:0;border-radius:50%;background:transparent;color:var(--muted);font-size:25px;line-height:35px}
-.modal-close:hover{background:var(--paper);color:var(--ink)}
-.add-modal{padding:36px}
-.modal-kicker{color:var(--red);margin-bottom:13px}
-.modal-card h2{margin:0;font-size:43px;line-height:.92;letter-spacing:-2px}
-.modal-intro{max-width:450px;color:var(--muted);font-size:13px;line-height:1.5;margin:16px 0 24px}
-#itemForm{display:grid;gap:14px}
-.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.field{display:block;color:var(--ink);font-size:10px;font-weight:700}
-.field small{color:var(--muted);font-weight:400}
-.field input,.field textarea,.field select{display:block;width:100%;margin-top:6px;padding:12px;border:1px solid var(--line);border-radius:7px;outline:0;background:#fff;color:var(--ink);font-size:13px}
-.field textarea{height:105px;resize:vertical}
-.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--ink);box-shadow:0 0 0 3px rgba(21,21,18,.05)}
-.submit-btn{height:48px;margin-top:5px;border:0;border-radius:8px;background:var(--ink);color:#fff;font-weight:700;transition:.18s}
-.submit-btn span{margin-left:6px}
-.auth-modal{width:min(440px,100%);padding:45px;text-align:center}
-.auth-logo{width:54px;height:54px;display:grid;place-items:center;margin:0 auto 20px;border-radius:12px;background:var(--ink);color:#fff;font-weight:700;font-size:22px}
-.auth-modal h2{font-size:39px}
-.auth-modal>p{color:var(--muted);font-size:13px;line-height:1.5}
-.google-btn{width:100%;height:50px;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:24px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font-weight:700}
-.google-btn:hover{border-color:#aaa59a;box-shadow:0 5px 20px rgba(0,0,0,.06)}
-.google-g{font-size:18px;font-weight:800}
-.auth-modal>small{display:block;margin-top:14px;color:var(--muted);font-size:10px}
-
-/* DETAIL */
-.detail-modal{width:min(700px,100%);padding:16px}
-.detail-img{width:100%;height:320px;display:block;object-fit:cover;border-radius:9px}
-.detail-icon{height:240px;display:grid;place-items:center;border-radius:9px;background:var(--green);font-size:80px}
-.detail{padding:20px 8px 8px}
-.detail .eyebrow{margin-bottom:7px}
-.detail h2{margin:0;font-size:40px;letter-spacing:-2px}
-.detail .muted{color:var(--muted);line-height:1.55;font-size:13px}
-.detail-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px}
-.primary,.secondary,.delete-btn{min-height:40px;padding:0 14px;border-radius:7px;font-size:12px;font-weight:700}
-.primary{border:0;background:var(--ink);color:#fff}
-.secondary{display:inline-flex;align-items:center;text-decoration:none;border:1px solid var(--line);background:#fff;color:var(--ink)}
-.delete-btn{border:1px solid #e2c4bc;background:#fff;color:#b33e2c}
-.delete-btn:hover{background:#fff0ec}
-
-/* TOAST */
-.toast{position:fixed;left:50%;bottom:25px;z-index:200;padding:11px 17px;border-radius:8px;background:var(--ink);color:#fff;font-size:12px;opacity:0;pointer-events:none;transform:translate(-50%,18px);transition:.2s;box-shadow:0 10px 30px rgba(0,0,0,.22)}
-.toast.show{opacity:1;transform:translate(-50%,0)}
-
-/* RESPONSIVE */
-@media(max-width:950px){
-  .hero{grid-template-columns:1fr;gap:45px}
-  .hero-card{max-width:390px}
-  .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+function authRequired(action){
+  if(user)return true;
+  $("#authModal")?.classList.add("open");
+  toast("Sign in to "+action);
+  return false;
 }
-@media(max-width:700px){
-  .site-header{
-    height:auto;
-    min-height:65px;
-    padding:10px 12px;
-    gap:10px;
-    flex-wrap:wrap;
-  }
-
-  .logo{
-    font-size:21px;
-  }
-
-  .main-nav{
-    display:flex;
-    order:3;
-    width:100%;
-    flex:none;
-    justify-content:center;
-    gap:22px;
-    padding-top:3px;
-  }
-
-  .nav-link{
-    font-size:12px;
-    padding:7px 0;
-  }
-
-  .header-right{
-    margin-left:auto;
-  }
-
-  .header-search{
-    display:none;
-  }
-
-  .signin-btn{
-    padding:0 9px;
-    font-size:11px;
-  }
-
-  .add-btn{
-    height:36px;
-    padding:0 11px;
-    font-size:11px;
-  }
-
-  .hero{
-    padding:60px 18px;
-  }
-
-  .hero h1{
-    font-size:60px;
-    letter-spacing:-4px;
-  }
-
-  .hero h1 em{
-    letter-spacing:-2px;
-  }
-
-  .hero-text{
-    font-size:15px;
-  }
-
-  .hero-meta{
-    gap:12px;
-    flex-wrap:wrap;
-  }
-
-  .category-strip{
-    padding:14px 18px;
-  }
-
-  .category-label{
-    display:none;
-  }
-
-  .content-section,
-  .page-view{
-    padding-left:18px;
-    padding-right:18px;
-  }
-
-  .grid{
-    grid-template-columns:1fr;
-  }
-
-  .section-title-row{
-    padding-top:40px;
-  }
-
-  .page-heading{
-    display:block;
-  }
-
-  .page-heading h1{
-    font-size:60px;
-  }
-
-  .page-heading .dark-btn{
-    margin-top:22px;
-  }
-
-  .list-grid{
-    grid-template-columns:1fr;
-  }
-
-  .form-row{
-    grid-template-columns:1fr;
-  }
-
-  .add-modal{
-    padding:30px 22px;
-  }
-
-  .modal-card h2{
-    font-size:36px;
-  }
-
-  .auth-modal{
-    padding:38px 24px;
-  }
-
-  .detail h2{
-    font-size:33px;
-  }
-  .list-picker{
-  margin-top:22px;
-  padding:18px;
-  background:var(--surface-2);
-  border-radius:10px;
-  border:1px solid var(--line);
+function setModal(id,open){
+  const el=$("#"+id);if(!el)return;
+  el.classList.toggle("open",open);
+  el.setAttribute("aria-hidden",String(!open));
 }
 
-.list-picker-options{
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  margin:12px 0;
+async function init(){
+  if(!sb){toast("Add your Supabase keys to config.js");return}
+  const {data,error}=await sb.auth.getSession();
+  if(error)console.error(error);
+  user=data?.session?.user||null;
+  updateAuth();
+  sb.auth.onAuthStateChange((_event,session)=>{
+    user=session?.user||null;
+    updateAuth();
+    loadSaved();
+  });
+  await loadItems();
+  await loadSaved();
 }
 
-.list-option{
-  width:100%;
-  padding:12px 14px;
-  border:1px solid var(--line);
-  border-radius:8px;
-  background:var(--surface);
-  color:var(--ink);
-  text-align:left;
-  cursor:pointer;
-}
-
-.list-option:hover{
-  border-color:#aaa59a;
-  transform:translateY(-1px);
-}
-
-.list-option strong{
-  display:block;
-  font-size:14px;
-}
-
-.list-option span{
-  display:block;
-  margin-top:3px;
-  color:var(--muted);
-  font-size:11px;
-}
-
-  .site-footer{
-    gap:10px;
-    flex-wrap:wrap;
+function updateAuth(){
+  const login=$("#loginBtn"),avatar=$("#profileBtn");
+  if(login)login.hidden=!!user;
+  if(avatar){
+    avatar.hidden=!user;
+    if(user){
+      const name=user.user_metadata?.full_name||user.user_metadata?.name||user.email||"U";
+      avatar.textContent=name.split(/\s+/).map(x=>x[0]).slice(0,2).join("").toUpperCase();
+    }
   }
 }
-.read-more-btn{
-  margin-top:6px;
-  padding:0;
-  border:0;
-  background:transparent;
-  color:var(--ink);
-  font-size:11px;
-  font-weight:700;
-  cursor:pointer;
+
+async function login(){
+  if(!sb){toast("Supabase is not configured");return}
+  const {error}=await sb.auth.signInWithOAuth({
+    provider:"google",
+    options:{redirectTo:window.location.origin+"/"}
+  });
+  if(error)toast(error.message);
 }
 
-.read-more-btn:hover{
-  text-decoration:underline;
+async function logout(){
+  if(!sb)return;
+  const {error}=await sb.auth.signOut();
+  if(error){toast(error.message);return}
+  user=null;saved.clear();updateAuth();render();renderSaved();toast("Signed out");
 }
 
-.item-description{
-  overflow-wrap:anywhere;
-}
-.user-info{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  min-width:0;
-}
-
-.user-avatar-wrap{
-  position:relative;
-  width:28px;
-  height:28px;
-  flex:none;
-}
-
-.user-avatar{
-  width:28px;
-  height:28px;
-  border-radius:50%;
-  object-fit:cover;
-  display:grid;
-  place-items:center;
-  background:var(--ink);
-  color:#fff;
-  font-size:9px;
-  font-weight:700;
+async function loadItems(){
+  if(!sb)return;
+  const {data,error}=await sb.from("items")
+    .select("*,profiles:user_id(display_name,username,avatar_url,contributor_badge),item_votes(count)")
+    .order("created_at",{ascending:false});
+  if(error){console.error(error);toast(error.message);return}
+  items=(data||[]).map(x=>({
+  ...x,
+  likes:x.item_votes?.[0]?.count||0,
+  user:x.profiles?.username
+    ? "@"+x.profiles.username
+    : x.profiles?.display_name||"@user",
+  avatar_url:x.profiles?.avatar_url||"",
+  isContributor:
+    (x.profiles?.username||"").toLowerCase().includes("founding contributor") ||
+    (x.profiles?.username||"").toLowerCase().includes("contributor")
+}));
+  render();renderSaved();
 }
 
-.contributor-badge{
-  position:absolute;
-  right:-5px;
-  bottom:-4px;
-  width:14px;
-  height:14px;
-  display:grid;
-  place-items:center;
-  border-radius:50%;
-  background:#e8b931;
-  color:#11110f;
-  border:2px solid var(--card);
-  font-size:8px;
-  font-weight:900;
-  z-index:2;
+async function loadSaved(){
+  if(!sb||!user){saved.clear();render();renderSaved();return}
+  const {data,error}=await sb.from("saved_items").select("item_id").eq("user_id",user.id);
+  if(error){console.error(error);return}
+  saved=new Set((data||[]).map(x=>x.item_id));render();renderSaved();
 }
+
+function filtered(){
+  const q=query.trim().toLowerCase();
+  return items.filter(x=>{
+    const hay=[x.name,x.description,x.category,...(x.tags||[]),x.user].join(" ").toLowerCase();
+    return (cat==="All"||x.category===cat)&&hay.includes(q);
+  });
+}
+
+function card(x){
+  const image = x.image_url
+    ? `<img src="${esc(x.image_url)}" alt="${esc(x.name)}" onerror="this.parentElement.innerHTML='◈'">`
+    : "◈";
+
+  const description = x.description || "";
+  const maxLength = 120;
+  const isLong = description.length > maxLength;
+
+  const shortDescription = isLong
+    ? description.slice(0, maxLength).trim() + "..."
+    : description;
+
+  return `<article class="card" data-id="${esc(x.id)}">
+    <div class="thumb">${image}</div>
+
+    <div class="body">
+      <div class="cat">${esc(x.category).toUpperCase()}</div>
+      <h3>${esc(x.name)}</h3>
+
+      <p class="item-description"
+         data-short="${esc(shortDescription)}"
+         data-full="${esc(description)}">
+        ${esc(shortDescription)}
+      </p>
+
+      ${isLong ? `
+        <button class="read-more-btn" type="button">
+          Read more
+        </button>
+      ` : ""}
+
+      <div class="tags">
+        ${(x.tags||[])
+          .map(t => `<span class="tag">#${esc(t)}</span>`)
+          .join("")}
+      </div>
+    </div>
+
+   <div class="foot">
+  <div class="user-info">
+    <div class="user-avatar-wrap">
+      ${
+        x.avatar_url
+          ? `<img class="user-avatar" src="${esc(x.avatar_url)}" alt="">`
+          : `<div class="user-avatar">U</div>`
+      }
+      ${
+        x.isContributor
+          ? `<span class="contributor-badge" title="Founding Contributor">★</span>`
+          : ``
+      }
+    </div>
+
+    <span>${esc(x.user||"@user")}</span>
+  </div>
+
+  <button class="like ${saved.has(x.id)?"saved":""}" data-save="${esc(x.id)}" type="button">
+    ${saved.has(x.id)?"♥":"♡"} ${x.likes||0}
+  </button>
+</div>
+  </article>`;
+}
+function wireCards(container){
+  container.querySelectorAll(".card").forEach(el=>{
+    el.onclick=e=>{
+      if(
+        e.target.closest("[data-save]") ||
+        e.target.closest(".read-more-btn")
+      ) return;
+
+      detail(el.dataset.id);
+    };
+  });
+
+  container.querySelectorAll("[data-save]").forEach(btn=>{
+    btn.onclick=e=>{
+      e.stopPropagation();
+      toggleSave(btn.dataset.save);
+    };
+  });
+
+  container.querySelectorAll(".read-more-btn").forEach(button=>{
+    button.onclick=e=>{
+      e.stopPropagation();
+
+      const description = button
+        .closest(".body")
+        .querySelector(".item-description");
+
+      const expanded = button.dataset.expanded === "true";
+
+      if(expanded){
+        description.textContent = description.dataset.short;
+        button.textContent = "Read more";
+        button.dataset.expanded = "false";
+      }else{
+        description.textContent = description.dataset.full;
+        button.textContent = "Show less";
+        button.dataset.expanded = "true";
+      }
+    };
+  });
+}
+function render(){
+  const grid=$("#grid");if(!grid)return;
+  const arr=filtered();
+  grid.innerHTML=arr.map(card).join("");
+  $("#count")&&( $("#count").textContent=`${arr.length} ${arr.length===1?"item":"items"}` );
+  $("#empty")&&( $("#empty").hidden=arr.length>0 );
+  grid.hidden=arr.length===0;
+  wireCards(grid);
+}
+
+function renderSaved(){
+  const grid=$("#savedGrid"),empty=$("#savedEmpty");
+  if(!grid||!empty)return;
+  const arr=items.filter(x=>saved.has(x.id));
+  grid.innerHTML=arr.map(card).join("");
+  grid.hidden=arr.length===0;
+  empty.hidden=arr.length>0;
+  wire(grid);
+}
+
+async function toggleSave(id){
+  if(!authRequired("save things"))return;
+  if(saved.has(id)){
+    const {error}=await sb.from("saved_items").delete().eq("item_id",id).eq("user_id",user.id);
+    if(error){toast(error.message);return}
+    saved.delete(id);toast("Removed from Saved");
+  }else{
+    const {error}=await sb.from("saved_items").insert({item_id:id,user_id:user.id});
+    if(error){toast(error.message);return}
+    saved.add(id);toast("Saved");
+  }
+  render();renderSaved();
+}
+
+function detail(id){
+  const x=items.find(i=>i.id===id);
+  if(!x)return;
+
+  const owner=!!user&&user.id===x.user_id;
+  const el=$("#itemDetail");
+
+  if(!el)return;
+
+  el.innerHTML=`
+    <button class="modal-close" id="detailClose" type="button">×</button>
+
+    ${
+      x.image_url
+        ? `<img
+            class="detail-img"
+            src="${esc(x.image_url)}"
+            alt="${esc(x.name)}"
+            onerror="this.style.display='none'"
+          >`
+        : `<div class="detail-icon">◈</div>`
+    }
+
+    <div class="detail">
+
+      <div class="eyebrow">
+        <span></span>
+        ${esc(x.category||"OTHER")}
+      </div>
+
+      <h2>${esc(x.name)}</h2>
+
+      <p class="muted">
+        ${esc(x.description)}
+      </p>
+
+      <p class="muted">
+        Added by <b>${esc(x.user)}</b>
+      </p>
+
+      <div class="tags">
+        ${(x.tags||[])
+          .map(t=>`<span class="tag">#${esc(t)}</span>`)
+          .join("")}
+      </div>
+
+      <div class="detail-actions">
+
+        <button
+          class="primary"
+          id="detailSave"
+          type="button"
+        >
+          ${saved.has(x.id)?"♥ Saved":"♡ Save"}
+        </button>
+
+        <button
+          class="secondary"
+          id="addToListBtn"
+          type="button"
+        >
+          ＋ Add to List
+        </button>
+
+        ${
+          x.source_url
+            ? `<a
+                class="secondary"
+                href="${esc(x.source_url)}"
+                target="_blank"
+                rel="noopener"
+              >
+                Visit source ↗
+              </a>`
+            : ""
+        }
+
+        ${
+          owner?`
+        <button class="secondary" id="editItem" type="button">✎ Edit</button>
+        <button class="delete-btn" id="deleteItem" type="button">Delete</button>
+    `:""}
+
+      </div>
+
+      <div id="listPicker"></div>
+
+    </div>
+  `;
+
+  setModal("itemModal",true);
+
+  $("#detailClose").onclick=()=>{
+    setModal("itemModal",false);
+  };
+
+  $("#detailSave").onclick=()=>{
+    toggleSave(x.id);
+  };
+
+  $("#addToListBtn").onclick=()=>{
+    showListPicker(x.id);
+  };
+
+  if(owner){
+  $("#editItem").onclick=()=>editItem(x.id);
+  $("#deleteItem").onclick=()=>deleteItem(x.id);
+}
+}
+async function showListPicker(itemId){
+
+  if(!authRequired("add things to lists"))return;
+
+  const picker=$("#listPicker");
+
+  if(!picker)return;
+
+  picker.innerHTML=`
+    <div class="list-picker">
+      <p class="tiny">ADD TO LIST</p>
+      <p class="muted">Loading your lists...</p>
+    </div>
+  `;
+
+  const {data,error}=await sb
+    .from("lists")
+    .select("id,title,description")
+    .eq("user_id",user.id)
+    .order("created_at",{ascending:false});
+
+  if(error){
+    console.error(error);
+    toast(error.message);
+    return;
+  }
+
+  if(!data||data.length===0){
+
+    picker.innerHTML=`
+      <div class="list-picker">
+
+        <p class="tiny">ADD TO LIST</p>
+
+        <p class="muted">
+          You don't have any lists yet.
+        </p>
+
+        <button
+          class="primary"
+          id="createListFromItem"
+          type="button"
+        >
+          + Create a List
+        </button>
+
+      </div>
+    `;
+
+    $("#createListFromItem").onclick=async()=>{
+      await newList();
+      await showListPicker(itemId);
+    };
+
+    return;
+  }
+
+  picker.innerHTML=`
+    <div class="list-picker">
+
+      <p class="tiny">ADD TO LIST</p>
+
+      <div class="list-picker-options">
+
+        ${data.map(list=>`
+          <button
+            class="list-option"
+            type="button"
+            data-list-id="${esc(list.id)}"
+          >
+            <strong>${esc(list.title)}</strong>
+            <span>${esc(list.description||"")}</span>
+          </button>
+        `).join("")}
+
+      </div>
+
+      <button
+        class="secondary"
+        id="createListFromItem"
+        type="button"
+      >
+        + Create a new list
+      </button>
+
+    </div>
+  `;
+
+  picker
+    .querySelectorAll("[data-list-id]")
+    .forEach(btn=>{
+
+      btn.onclick=async()=>{
+
+        const listId=btn.dataset.listId;
+
+        const {error}=await sb
+          .from("list_items")
+          .insert({
+            list_id:listId,
+            item_id:itemId
+          });
+
+        if(error){
+
+          if(
+            error.code==="23505" ||
+            error.message?.toLowerCase().includes("duplicate")
+          ){
+            toast("Already in this list");
+          }else{
+            console.error(error);
+            toast(error.message);
+          }
+
+          return;
+        }
+
+        toast("Added to list ✦");
+
+        picker.innerHTML=`
+          <div class="list-picker">
+            <p class="muted">
+              ✓ Added to your list
+            </p>
+          </div>
+        `;
+      };
+
+    });
+
+
+  $("#createListFromItem").onclick=async()=>{
+    await newList();
+    await showListPicker(itemId);
+  };
+}
+
+function editItem(id){
+  const item=items.find(x=>x.id===id);
+
+  if(!item){
+    toast("Couldn't find this item");
+    return;
+  }
+
+  if(!user || item.user_id!==user.id){
+    toast("You can only edit your own items");
+    return;
+  }
+
+  editingItemId=id;
+
+  const form=$("#itemForm");
+
+  form.elements.name.value=item.name||"";
+  form.elements.description.value=item.description||"";
+  form.elements.category.value=item.category||"Other";
+  form.elements.tags.value=(item.tags||[]).join(", ");
+  form.elements.url.value=item.source_url||"";
+
+  $("#addTitle").innerHTML="Edit your<br><em>discovery.</em>";
+
+  const submitButton=form.querySelector(".submit-btn");
+  submitButton.innerHTML="Save changes <span>✓</span>";
+
+  setModal("itemModal",false);
+  setModal("modal",true);
+}
+
+async function deleteItem(id){
+  if(!user)return;
+  const x=items.find(i=>i.id===id);
+  if(!x||x.user_id!==user.id){toast("You can only delete your own items");return}
+  if(!confirm(`Delete "${x.name}" permanently?`))return;
+  const {error}=await sb.from("items").delete().eq("id",id).eq("user_id",user.id);
+  if(error){toast(error.message);return}
+  setModal("itemModal",false);toast("Deleted");await loadItems();
+}
+
+async function fetchSourceImage(sourceUrl){
+  if(!sourceUrl)return null;
+
+  try{
+    const endpoint=`${c.SUPABASE_URL}/functions/v1/fetch-product-image`;
+    const response=await fetch(endpoint,{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "Authorization":`Bearer ${c.SUPABASE_PUBLISHABLE_KEY}`
+      },
+      body:JSON.stringify({url:sourceUrl})
+    });
+
+    const data=await response.json().catch(()=>({}));
+
+    if(!response.ok){
+      console.warn("Source image lookup failed:",data?.error||response.statusText);
+      return null;
+    }
+
+    return data?.image_url||null;
+  }catch(error){
+    console.warn("Source image lookup failed:",error);
+    return null;
+  }
+}
+
+async function addItem(e){
+  e.preventDefault();
+
+  if(!authRequired("publish things")) return;
+
+  const f=new FormData(e.target);
+  const sourceUrl=String(f.get("url")||"").trim()||null;
+
+  const row={
+    name:String(f.get("name")||"").trim(),
+    description:String(f.get("description")||"").trim(),
+    category:String(f.get("category")||"Other"),
+    tags:String(f.get("tags")||"")
+      .split(",")
+      .map(x=>x.trim())
+      .filter(Boolean),
+    source_url:sourceUrl,
+    image_url:null
+  };
+
+  if(!row.name||!row.description){
+    toast("Name and description are required");
+    return;
+  }
+
+  const submitButton=e.target.querySelector(".submit-btn");
+  const originalButton=submitButton?.innerHTML;
+
+  if(sourceUrl){
+    if(submitButton){
+      submitButton.disabled=true;
+      submitButton.innerHTML="Finding product image <span>…</span>";
+    }
+
+    row.image_url=await fetchSourceImage(sourceUrl);
+
+    if(submitButton){
+      submitButton.disabled=false;
+      submitButton.innerHTML=originalButton||"Publish to Lister <span>↗</span>";
+    }
+  }
+
+  let error;
+
+  if(editingItemId){
+    const result=await sb
+      .from("items")
+      .update(row)
+      .eq("id",editingItemId)
+      .eq("user_id",user.id);
+
+    error=result.error;
+  }else{
+    const result=await sb
+      .from("items")
+      .insert({
+        ...row,
+        user_id:user.id
+      });
+
+    error=result.error;
+  }
+
+  if(error){
+    console.error(error);
+    toast(error.message);
+    return;
+  }
+
+  const wasEditing=!!editingItemId;
+
+  editingItemId=null;
+  e.target.reset();
+
+  $("#addTitle").innerHTML="Put something<br><em>on the map.</em>";
+
+  if(submitButton){
+    submitButton.disabled=false;
+    submitButton.innerHTML="Publish to Lister <span>↗</span>";
+  }
+
+  setModal("modal",false);
+
+  toast(
+    wasEditing
+      ? (row.image_url ? "Changes saved ✓" : "Changes saved")
+      : (row.image_url ? "Published with product image ✦" : "Published to Lister ✦")
+  );
+
+  await loadItems();
+  await loadSaved();
+}
+
+async function loadLists(){
+  if(!sb)return;
+
+  const {data,error}=await sb.from("lists")
+    .select("*,profiles:user_id(display_name,username),list_items(count)")
+    .order("created_at",{ascending:false});
+
+  if(error){
+    console.error(error);
+    toast(error.message);
+    return;
+  }
+
+  const grid=$("#listGrid");
+  if(!grid)return;
+
+  grid.innerHTML=(data||[]).map(l=>`
+    <article
+      class="list-card"
+      data-list-id="${esc(l.id)}"
+      tabindex="0"
+      role="button"
+      aria-label="Open ${esc(l.title)}"
+    >
+      <div class="list-art">◈</div>
+
+      <h3>${esc(l.title)}</h3>
+
+      <p>
+        ${l.list_items?.[0]?.count||0} items ·
+        ${esc(
+          l.profiles?.username
+            ? "@"+l.profiles.username
+            : l.profiles?.display_name||"@user"
+        )}
+      </p>
+
+      <p>${esc(l.description||"")}</p>
+    </article>
+  `).join("");
+
+  grid.querySelectorAll(".list-card").forEach(card=>{
+    const open=()=>openList(card.dataset.listId);
+
+    card.addEventListener("click",open);
+
+    card.addEventListener("keydown",e=>{
+      if(e.key==="Enter"||e.key===" "){
+        e.preventDefault();
+        open();
+      }
+    });
+  });
+}
+
+
+async function openList(listId){
+  if(!sb||!listId)return;
+
+  const modal=$("#itemModal");
+  const el=$("#itemDetail");
+
+  if(!modal||!el)return;
+
+  el.innerHTML=`
+    <div class="detail">
+      <p class="muted">Loading list…</p>
+    </div>
+  `;
+
+  setModal("itemModal",true);
+
+  // Get the list
+  const {data:list,error:listError}=await sb
+    .from("lists")
+    .select("*,profiles:user_id(display_name,username)")
+    .eq("id",listId)
+    .single();
+
+  if(listError||!list){
+    console.error(listError);
+    toast("Couldn't open this list");
+    setModal("itemModal",false);
+    return;
+  }
+
+  // Get the items belonging to this list
+  const {data:links,error:linksError}=await sb
+    .from("list_items")
+    .select("item_id")
+    .eq("list_id",listId);
+
+  if(linksError){
+    console.error(linksError);
+    toast(linksError.message);
+    setModal("itemModal",false);
+    return;
+  }
+
+  const ids=(links||[])
+    .map(x=>x.item_id)
+    .filter(Boolean);
+
+  let listItems=[];
+
+  // Load the actual items
+  if(ids.length){
+
+    const {data:rows,error:itemsError}=await sb
+      .from("items")
+      .select(
+        "*,profiles:user_id(display_name,username,avatar_url),item_votes(count)"
+      )
+      .in("id",ids);
+
+    if(itemsError){
+      console.error(itemsError);
+      toast(itemsError.message);
+      setModal("itemModal",false);
+      return;
+    }
+
+    const byId=new Map(
+      (rows||[]).map(x=>[x.id,x])
+    );
+
+    // Keep the same order as list_items
+    listItems=ids
+      .map(id=>byId.get(id))
+      .filter(Boolean)
+      .map(x=>({
+        ...x,
+        likes:x.item_votes?.[0]?.count||0,
+        user:x.profiles?.username
+          ? "@"+x.profiles.username
+          : x.profiles?.display_name||"@user"
+      }));
+  }
+
+  const owner=
+    !!user &&
+    user.id===list.user_id;
+
+  const author=list.profiles?.username
+    ? "@"+list.profiles.username
+    : list.profiles?.display_name||"@user";
+
+
+  // Display the list
+  el.innerHTML=`
+
+    <button
+      class="modal-close"
+      id="listClose"
+      type="button"
+    >
+      ×
+    </button>
+
+    <div class="detail">
+
+      <div class="eyebrow">
+        <span></span>
+        CURATED LIST
+      </div>
+
+      <h2>
+        ${esc(list.title)}
+      </h2>
+
+      <p class="muted">
+        ${esc(list.description||"")}
+      </p>
+
+      <p class="muted">
+        ${listItems.length}
+        ${listItems.length===1?"item":"items"}
+        · by <b>${esc(author)}</b>
+      </p>
+
+
+      <div class="list-detail-items">
+
+        ${
+          listItems.length
+
+          ?
+
+          listItems.map(x=>`
+
+            <article
+              class="list-item-row"
+              data-item-id="${esc(x.id)}"
+              tabindex="0"
+              role="button"
+            >
+
+              <div class="list-item-thumb">
+
+                ${
+                  x.image_url
+
+                  ?
+
+                  `<img
+                    src="${esc(x.image_url)}"
+                    alt="${esc(x.name)}"
+                    onerror="this.style.display='none'"
+                  >`
+
+                  :
+
+                  "◈"
+                }
+
+              </div>
+
+
+              <div>
+
+                <div class="cat">
+                  ${esc(
+                    x.category||"OTHER"
+                  ).toUpperCase()}
+                </div>
+
+                <h3>
+                  ${esc(x.name)}
+                </h3>
+
+                <p>
+                  ${esc(x.description||"")}
+                </p>
+
+              </div>
+
+            </article>
+
+          `).join("")
+
+          :
+
+          `
+
+          <div
+            class="empty"
+            style="padding:35px 10px"
+          >
+
+            <div>◈</div>
+
+            <h3>
+              This list is empty.
+            </h3>
+
+            <p>
+              There aren't any items
+              in this list yet.
+            </p>
+
+          </div>
+
+          `
+        }
+
+      </div>
+
+
+      ${
+        owner
+
+        ?
+
+        `<p
+          class="tiny"
+          style="margin-top:18px"
+        >
+          You created this list.
+        </p>`
+
+        :
+
+        ""
+      }
+
+    </div>
+  `;
+
+
+  // Close button
+  $("#listClose").onclick=()=>{
+    setModal("itemModal",false);
+  };
+
+
+  // Make items inside the list clickable
+  el.querySelectorAll(".list-item-row")
+    .forEach(row=>{
+
+      const open=()=>{
+        detail(row.dataset.itemId);
+      };
+
+      row.addEventListener(
+        "click",
+        open
+      );
+
+      row.addEventListener(
+        "keydown",
+        e=>{
+          if(
+            e.key==="Enter" ||
+            e.key===" "
+          ){
+            e.preventDefault();
+            open();
+          }
+        }
+      );
+
+    });
+}
+
+async function newList(){
+  if(!authRequired("create lists"))return;
+  const title=prompt("List title");if(!title)return;
+  const description=prompt("Short description")||"";
+  const {error}=await sb.from("lists").insert({user_id:user.id,title:title.trim(),description:description.trim()});
+  if(error){toast(error.message);return}
+  toast("List created");loadLists();
+}
+
+function view(name){
+  $("#exploreView")&&( $("#exploreView").hidden=name!=="explore" );
+  $("#listsView")&&( $("#listsView").hidden=name!=="lists" );
+  $("#savedView")&&( $("#savedView").hidden=name!=="saved" );
+  if(name==="explore")render();
+  if(name==="saved")renderSaved();
+  if(name==="lists")loadLists();
+}
+
+$$(".nav-link").forEach(b=>b.onclick=()=>{
+  $$(".nav-link").forEach(x=>x.classList.remove("active"));b.classList.add("active");view(b.dataset.view);
+});
+$$(".chip").forEach(b=>b.onclick=()=>{
+  $$(".chip").forEach(x=>x.classList.remove("active"));b.classList.add("active");cat=b.dataset.cat;render();
+});
+$("#search")?.addEventListener("input",e=>{query=e.target.value;render()});
+$("#focusSearch")?.addEventListener("click",()=>$("#search")?.focus());
+
+$("#loginBtn")?.addEventListener("click",()=>setModal("authModal",true));
+$("#googleBtn")?.addEventListener("click",login);
+$("#authClose")?.addEventListener("click",()=>setModal("authModal",false));
+$("#profileBtn")?.addEventListener("click",()=>{if(confirm("Sign out of Lister?"))logout()});
+
+const openAdd=()=>{
+  if(!authRequired("publish things")) return;
+
+  editingItemId=null;
+
+  const form=$("#itemForm");
+  form.reset();
+
+  $("#addTitle").innerHTML="Put something<br><em>on the map.</em>";
+
+  const submitButton=form.querySelector(".submit-btn");
+  submitButton.innerHTML="Publish to Lister <span>↗</span>";
+
+  setModal("modal",true);
+};
+$("#addBtn")?.addEventListener("click",openAdd);
+$("#emptyAdd")?.addEventListener("click",openAdd);
+$("#close")?.addEventListener("click",()=>setModal("modal",false));
+$("#itemForm")?.addEventListener("submit",addItem);
+$("#newList")?.addEventListener("click",newList);
+
+$$(".modal-backdrop").forEach(b=>b.addEventListener("click",e=>{
+  if(e.target===b)b.classList.remove("open");
+}));
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape")$$(".modal-backdrop").forEach(x=>x.classList.remove("open"));
+  if(e.key==="/"&&document.activeElement!==$("#search")){e.preventDefault();$("#search")?.focus()}
+});
+const itemForm = $("#itemForm");
+
+if (itemForm) {
+  const nameInput = itemForm.elements.name;
+  const descriptionInput = itemForm.elements.description;
+  const categoryInput = itemForm.elements.category;
+  const tagsInput = itemForm.elements.tags;
+
+  let tagTimer;
+
+  function updateAutoTags() {
+    clearTimeout(tagTimer);
+
+    tagTimer = setTimeout(() => {
+      const name = nameInput.value.trim();
+      const description = descriptionInput.value.trim();
+      const category = categoryInput.value;
+
+      if (!name && !description) return;
+
+      const generatedTags = generateTags(
+        name,
+        description,
+        category
+      );
+
+      tagsInput.value = generatedTags.join(", ");
+    }, 500);
+  }
+
+  nameInput.addEventListener("input", updateAutoTags);
+  descriptionInput.addEventListener("input", updateAutoTags);
+  categoryInput.addEventListener("change", updateAutoTags);
+}
+init();
