@@ -1,0 +1,2 @@
+[functions.fetch-product-image]
+verify_jwt = false
