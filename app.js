@@ -262,6 +262,24 @@ function render(){
   wireCards(grid);
 }
 
+function wire(container){
+  if(!container)return;
+
+  container.querySelectorAll(".card").forEach(el=>{
+    el.onclick=e=>{
+      if(e.target.closest("[data-save]"))return;
+      detail(el.dataset.id);
+    };
+  });
+
+  container.querySelectorAll("[data-save]").forEach(btn=>{
+    btn.onclick=e=>{
+      e.stopPropagation();
+      toggleSave(btn.dataset.save);
+    };
+  });
+}
+
 function renderSaved(){
   const grid=$("#savedGrid"),empty=$("#savedEmpty");
   if(!grid||!empty)return;
