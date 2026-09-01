@@ -419,10 +419,3 @@ button{cursor:pointer}
   z-index:2;
 }
 
-
-.source-image-note{
-  margin:-4px 0 2px;
-  color:var(--muted);
-  font-size:11px;
-  line-height:1.45;
-}
