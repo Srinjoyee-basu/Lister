@@ -588,23 +588,34 @@ async function fetchSourceImage(sourceUrl){
       body:{url:sourceUrl}
     });
 
+    console.log("IMAGE FUNCTION DATA:", data);
+    console.log("IMAGE FUNCTION ERROR:", error);
+
     if(error){
       console.warn("Source image lookup failed:",error.message||error);
+      toast("Image function error: " + (error.message || "unknown"));
       return null;
     }
 
-    if(!data?.image_url)return null;
+    if(!data?.image_url){
+      console.warn("Function returned no image:",data);
+      toast("Function found no image");
+      return null;
+    }
 
-    // Store a Lister/Supabase proxy URL instead of the remote CDN URL.
-    // This lets the browser display images even when the source CDN blocks
-    // direct hotlinking or requires special request headers.
-    return `${c.SUPABASE_URL}/functions/v1/fetch-product-image?image=${encodeURIComponent(data.image_url)}`;
+    const proxyUrl =
+      `${c.SUPABASE_URL}/functions/v1/fetch-product-image?image=${encodeURIComponent(data.image_url)}`;
+
+    console.log("FINAL IMAGE URL:", proxyUrl);
+
+    return proxyUrl;
+
   }catch(error){
-    console.warn("Source image lookup failed:",error);
+    console.error("Source image lookup crashed:",error);
+    toast("Image lookup failed");
     return null;
   }
 }
-
 async function addItem(e){
   e.preventDefault();
 
