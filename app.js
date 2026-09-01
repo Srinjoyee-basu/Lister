@@ -262,24 +262,6 @@ function render(){
   wireCards(grid);
 }
 
-function wire(container){
-  if(!container)return;
-
-  container.querySelectorAll(".card").forEach(el=>{
-    el.onclick=e=>{
-      if(e.target.closest("[data-save]"))return;
-      detail(el.dataset.id);
-    };
-  });
-
-  container.querySelectorAll("[data-save]").forEach(btn=>{
-    btn.onclick=e=>{
-      e.stopPropagation();
-      toggleSave(btn.dataset.save);
-    };
-  });
-}
-
 function renderSaved(){
   const grid=$("#savedGrid"),empty=$("#savedEmpty");
   if(!grid||!empty)return;
@@ -573,6 +555,7 @@ function editItem(id){
   form.elements.category.value=item.category||"Other";
   form.elements.tags.value=(item.tags||[]).join(", ");
   form.elements.url.value=item.source_url||"";
+  if(form.elements.image)form.elements.image.value=item.image_url||"";
 
   $("#addTitle").innerHTML="Edit your<br><em>discovery.</em>";
 
@@ -597,50 +580,36 @@ async function fetchSourceImage(sourceUrl){
   if(!sourceUrl)return null;
 
   try{
-    if(!sb){
-      console.warn("Supabase is not configured");
-      return null;
-    }
-
-    const {data,error}=await sb.functions.invoke("fetch-product-image",{
-      body:{url:sourceUrl}
+    const endpoint=`${c.SUPABASE_URL}/functions/v1/fetch-product-image`;
+    const response=await fetch(endpoint,{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "Authorization":`Bearer ${c.SUPABASE_PUBLISHABLE_KEY}`
+      },
+      body:JSON.stringify({url:sourceUrl})
     });
 
-    console.log("IMAGE FUNCTION DATA:", data);
-    console.log("IMAGE FUNCTION ERROR:", error);
+    const data=await response.json().catch(()=>({}));
 
-    if(error){
-      console.warn("Source image lookup failed:",error.message||error);
-      toast("Image function error: " + (error.message || "unknown"));
+    if(!response.ok){
+      console.warn("Source image lookup failed:",data?.error||response.statusText);
       return null;
     }
 
-    if(!data?.image_url){
-      console.warn("Function returned no image:",data);
-      toast("Function found no image");
-      return null;
-    }
-
-    const proxyUrl =
-      `${c.SUPABASE_URL}/functions/v1/fetch-product-image?image=${encodeURIComponent(data.image_url)}`;
-
-    console.log("FINAL IMAGE URL:", proxyUrl);
-
-    return proxyUrl;
-
+    return data?.image_url||null;
   }catch(error){
-    console.error("Source image lookup crashed:",error);
-    toast("Image lookup failed");
+    console.warn("Source image lookup failed:",error);
     return null;
   }
 }
+
 async function addItem(e){
   e.preventDefault();
 
   if(!authRequired("publish things")) return;
 
   const f=new FormData(e.target);
-  const sourceUrl=String(f.get("url")||"").trim()||null;
 
   const row={
     name:String(f.get("name")||"").trim(),
@@ -650,34 +619,13 @@ async function addItem(e){
       .split(",")
       .map(x=>x.trim())
       .filter(Boolean),
-    source_url:sourceUrl,
-    image_url:null
+    source_url:String(f.get("url")||"").trim()||null,
+    image_url:String(f.get("image")||"").trim()||null
   };
 
   if(!row.name||!row.description){
     toast("Name and description are required");
     return;
-  }
-
-  const submitButton=e.target.querySelector(".submit-btn");
-  const originalButton=submitButton?.innerHTML;
-
-  if(sourceUrl){
-    if(submitButton){
-      submitButton.disabled=true;
-      submitButton.innerHTML="Finding product image <span>…</span>";
-    }
-
-    row.image_url=await fetchSourceImage(sourceUrl);
-
-    if(submitButton){
-      submitButton.disabled=false;
-      submitButton.innerHTML=originalButton||"Publish to Lister <span>↗</span>";
-    }
-
-    if(!row.image_url){
-      toast("Couldn't find a product image. Publishing without one.");
-    }
   }
 
   let error;
@@ -714,6 +662,7 @@ async function addItem(e){
 
   $("#addTitle").innerHTML="Put something<br><em>on the map.</em>";
 
+  const submitButton=e.target.querySelector(".submit-btn");
   if(submitButton){
     submitButton.disabled=false;
     submitButton.innerHTML="Publish to Lister <span>↗</span>";
@@ -721,11 +670,7 @@ async function addItem(e){
 
   setModal("modal",false);
 
-  toast(
-    wasEditing
-      ? (row.image_url ? "Changes saved ✓" : "Changes saved")
-      : (row.image_url ? "Published with product image ✦" : "Published to Lister ✦")
-  );
+  toast(wasEditing ? "Changes saved ✓" : "Published to Lister ✦");
 
   await loadItems();
   await loadSaved();
